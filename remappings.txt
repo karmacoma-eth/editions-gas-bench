@@ -1,0 +1,2 @@
+@openzeppelin/=lib/zora-nft-editions/node_modules/@openzeppelin/
+

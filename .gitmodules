@@ -2,3 +2,9 @@
 	path = lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
 	branch = v1.2.0
+[submodule "lib/showtime-nft-editions"]
+	path = lib/showtime-nft-editions
+	url = https://github.com/showtime-xyz/nft-editions
+[submodule "lib/zora-nft-editions"]
+	path = lib/zora-nft-editions
+	url = https://github.com/ourzora/nft-editions
