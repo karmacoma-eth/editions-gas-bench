@@ -21,11 +21,13 @@ forge snapshot
 
 ### Single Mint
 
-|                         | Zora editions | Showtime editions | % change |
-| ----------------------- | ------------- | ----------------- | -------- |
-| testMintByContract()    | 57883         | 50702             | \-12.41% |
-| testMintByOwner()       | 48457         | 49869             | 2.91%    |
-| testMintOpenEdition()   | 67489         | 64612             | \-4.26%  |
+|                         | ZoraEditions | ShowtimeEditions | % change |
+| ----------------------- | ------------ | ---------------- | -------- |
+| testMintByContract()    | 77094        | 69909            | \-9.32%  |
+| testMintByOwner()       | 67659        | 69082            | 2.10%    |
+| testMintOpenEdition()   | 69596        | 66725            | \-4.13%  |
+
+(this is the cost to mint to an address with a 0 balance)
 
 ### Batch Mint
 
@@ -34,6 +36,15 @@ forge snapshot
 | testMint10ByContract()  | 525498        | 515257            | \-1.95%  |
 | testMint10ByOwner()     | 512988        | 511354            | \-0.32%  |
 | testMint10OpenEdition() | 515336        | 509392            | \-1.15%  |
+
+### Paid Mint
+
+|                           | Zora Editions | Showtime Editions | % change |
+| ------------------------- | ------------- | ----------------- | -------- |
+| testPaidMintByContract()  | 98247         | 83365             | \-15.15% |
+| testPaidMintOpenEdition() | 78051         | 73447             | \-5.90%  |
+
+Note: Zora editions only send paid mints to `msg.sender`, so doing a paid mint via a contract means that we need to also transfer the NFT to the actual buyer.
 
 ### View Functions
 

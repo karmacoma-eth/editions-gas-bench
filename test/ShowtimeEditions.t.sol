@@ -15,8 +15,8 @@ import {IEdition} from "showtime-nft-editions/interfaces/IEdition.sol";
 //////////////////////////////////////////////////////////////*/
 
 contract MinterContract {
-    function mint(IEdition edition, address to) public {
-        edition.mint(to);
+    function mint(IEdition edition, address to) public payable {
+        edition.mint{value: msg.value}(to);
     }
 
     function mintBatch(IEdition edition, address[] memory to) public {
@@ -30,9 +30,12 @@ contract ShowtimeEditions is Test {
     //////////////////////////////////////////////////////////////*/
 
     Edition editionImpl;
+    EditionCreator editionCreator;
+
     IEdition edition;
     IEdition openEdition;
-    EditionCreator editionCreator;
+    IEdition openEditionForSale;
+    IEdition openEditionForSaleByMinterContract;
 
     MinterContract minter;
 
@@ -42,30 +45,52 @@ contract ShowtimeEditions is Test {
 
     address[] batch10;
 
+    address bob = makeAddr("bob");
+
     /*//////////////////////////////////////////////////////////////
                                  SETUP
     //////////////////////////////////////////////////////////////*/
 
     function setUp() public {
+        minter = new MinterContract();
+
         editionImpl = new Edition();
         editionCreator = new EditionCreator(address(editionImpl));
+
         edition = editionCreator.createEdition(
             "name", "symbol", "description", "animationUrl", "imageUrl", editionSize, royaltyBPS, mintPeriodSeconds
         );
+        edition.setApprovedMinter(address(minter), true);
+        // pre-mint for tokenUri
+        edition.mint(address(this));
 
         openEdition = editionCreator.createEdition(
             "openEdition", "symbol", "description", "animationUrl", "imageUrl", 0, royaltyBPS, mintPeriodSeconds
         );
-
-        minter = new MinterContract();
-        edition.setApprovedMinter(address(minter), true);
-
         openEdition.setApprovedMinter(address(0), true);
-
         // transfer ownership to 0, so that calls coming from this contract don't come from the owner
         IERC173(address(openEdition)).transferOwnership(address(0));
 
-        edition.mint(address(this));
+        openEditionForSale = editionCreator.createEdition(
+            "openEditionForSale", "symbol", "description", "animationUrl", "imageUrl", 0, royaltyBPS, mintPeriodSeconds
+        );
+        openEditionForSale.setApprovedMinter(address(0), true);
+        openEditionForSale.setSalePrice(1 ether);
+        IERC173(address(openEditionForSale)).transferOwnership(address(0));
+
+        openEditionForSaleByMinterContract = editionCreator.createEdition(
+            "openEditionForSaleByMinterContract",
+            "symbol",
+            "description",
+            "animationUrl",
+            "imageUrl",
+            0,
+            royaltyBPS,
+            mintPeriodSeconds
+        );
+        openEditionForSaleByMinterContract.setApprovedMinter(address(minter), true);
+        openEditionForSaleByMinterContract.setSalePrice(1 ether);
+        IERC173(address(openEditionForSaleByMinterContract)).transferOwnership(address(0));
 
         for (uint160 i = 0; i < 10; i++) {
             batch10.push(address(i + 1));
@@ -83,15 +108,15 @@ contract ShowtimeEditions is Test {
     }
 
     function testMintByOwner() public {
-        edition.mint(address(this));
+        edition.mint(bob);
     }
 
     function testMintByContract() public {
-        minter.mint(edition, address(this));
+        minter.mint(edition, bob);
     }
 
     function testMintOpenEdition() public {
-        openEdition.mint(address(this));
+        openEdition.mint(bob);
     }
 
     function testMint10ByOwner() public {
@@ -104,6 +129,14 @@ contract ShowtimeEditions is Test {
 
     function testMint10OpenEdition() public {
         openEdition.mintBatch(batch10);
+    }
+
+    function testPaidMintOpenEdition() public {
+        openEditionForSale.mint{value: 1 ether}(bob);
+    }
+
+    function testPaidMintByContract() public {
+        minter.mint{value: 1 ether}(openEditionForSaleByMinterContract, bob);
     }
 
     function testTokenURI() public view {

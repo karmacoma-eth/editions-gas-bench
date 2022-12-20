@@ -26,6 +26,11 @@ contract MinterContract {
         edition.mintEdition(to);
     }
 
+    function purchase(IEditionSingleMintable edition, address to) public payable {
+        SingleEditionMintable(address(edition)).purchase{value: msg.value}();
+        SingleEditionMintable(address(edition)).transferFrom(address(this), to, 1);
+    }
+
     function mintBatch(IEditionSingleMintable edition, address[] memory to) public {
         edition.mintEditions(to);
     }
@@ -37,9 +42,12 @@ contract ZoraEditions is Test {
     //////////////////////////////////////////////////////////////*/
 
     SingleEditionMintable editionImpl;
+    SingleEditionMintableCreator editionCreator;
+
     IEditionSingleMintable edition;
     IEditionSingleMintable openEdition;
-    SingleEditionMintableCreator editionCreator;
+    IEditionSingleMintable openEditionForSale;
+    IEditionSingleMintable openEditionForSaleByMinterContract;
 
     MinterContract minter;
 
@@ -50,12 +58,16 @@ contract ZoraEditions is Test {
     address[] batch10;
 
     bytes32 constant hash = keccak256("someHash");
+    address bob = makeAddr("bob");
 
     /*//////////////////////////////////////////////////////////////
                                  SETUP
     //////////////////////////////////////////////////////////////*/
 
     function setUp() public {
+        vm.deal(bob, 100 ether);
+        minter = new MinterContract();
+
         editionImpl = new SingleEditionMintable(new SharedNFTLogic());
         editionCreator = new SingleEditionMintableCreator(address(editionImpl));
         edition = editionCreator.getEditionAtId(
@@ -63,22 +75,52 @@ contract ZoraEditions is Test {
                 "name", "symbol", "description", "animationUrl", hash, "imageUrl", hash, editionSize, royaltyBPS
             )
         );
+        ApproveMinters(address(edition)).setApprovedMinter(address(minter), true);
+        // pre-mint for tokenUri
+        edition.mintEdition(address(this));
 
         openEdition = editionCreator.getEditionAtId(
             editionCreator.createEdition(
                 "openEdition", "symbol", "description", "animationUrl", hash, "imageUrl", hash, editionSize, royaltyBPS
             )
         );
-
-        minter = new MinterContract();
-        ApproveMinters(address(edition)).setApprovedMinter(address(minter), true);
-
         ApproveMinters(address(openEdition)).setApprovedMinter(address(0), true);
-
         // transfer ownership to 0, so that calls coming from this contract don't come from the owner
         IERC173(address(openEdition)).transferOwnership(address(0xdead));
 
-        edition.mintEdition(address(this));
+        openEditionForSale = editionCreator.getEditionAtId(
+            editionCreator.createEdition(
+                "openEditionForSale",
+                "symbol",
+                "description",
+                "animationUrl",
+                hash,
+                "imageUrl",
+                hash,
+                editionSize,
+                royaltyBPS
+            )
+        );
+        ApproveMinters(address(openEditionForSale)).setApprovedMinter(address(0), true);
+        SingleEditionMintable(address(openEditionForSale)).setSalePrice(1 ether);
+        IERC173(address(openEditionForSale)).transferOwnership(address(0xdead));
+
+        openEditionForSaleByMinterContract = editionCreator.getEditionAtId(
+            editionCreator.createEdition(
+                "openEditionForSaleByMinterContract",
+                "symbol",
+                "description",
+                "animationUrl",
+                hash,
+                "imageUrl",
+                hash,
+                editionSize,
+                royaltyBPS
+            )
+        );
+        ApproveMinters(address(openEditionForSaleByMinterContract)).setApprovedMinter(address(minter), true);
+        SingleEditionMintable(address(openEditionForSaleByMinterContract)).setSalePrice(1 ether);
+        IERC173(address(openEditionForSaleByMinterContract)).transferOwnership(address(0xdead));
 
         for (uint160 i = 0; i < 10; i++) {
             batch10.push(address(i + 1));
@@ -95,16 +137,26 @@ contract ZoraEditions is Test {
         );
     }
 
+    /// mint to a fresh address (more expensive because of the 0->1 balance change)
     function testMintByOwner() public {
-        edition.mintEdition(address(this));
+        edition.mintEdition(bob);
     }
 
     function testMintByContract() public {
-        minter.mint(edition, address(this));
+        minter.mint(edition, bob);
     }
 
     function testMintOpenEdition() public {
-        openEdition.mintEdition(address(this));
+        openEdition.mintEdition(bob);
+    }
+
+    function testPaidMintOpenEdition() public {
+        vm.prank(bob);
+        SingleEditionMintable(address(openEditionForSale)).purchase{value: 1 ether}();
+    }
+
+    function testPaidMintByContract() public {
+        minter.purchase{value: 1 ether}(openEditionForSaleByMinterContract, bob);
     }
 
     function testMint10ByOwner() public {
